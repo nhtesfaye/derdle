@@ -112,7 +112,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- APP START ---
 if __name__ == "__main__":
-    TOKEN = os.getenv("BOT_TOKEN")
+    TOKEN = os.getenv("8547980046:AAFyjJ4Pe3KrE2qvV0iem3AMXHKWEeo7n6k")
     app = Application.builder().token(TOKEN).build()
     
     app.add_handler(CommandHandler("start", start))
