@@ -1,271 +1,123 @@
-
-# Derdle Telegram Bot (Version 1)
-# Install:
-# pip install python-telegram-bot==20.6
-
+import os
+import base64
 import logging
-import random
-import string
-import sqlite3
-
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ContextTypes,
-    filters
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = "8547980046:AAFyjJ4Pe3KrE2qvV0iem3AMXHKWEeo7n6k"
+# Enable logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# -----------------------------
-# DATABASE
-# -----------------------------
-conn = sqlite3.connect("derdle.db", check_same_thread=False)
-cur = conn.cursor()
+# --- AMHARIC GAME LOGIC ---
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS challenges (
-    code TEXT PRIMARY KEY,
-    word TEXT NOT NULL,
-    creator_id TEXT
-)
-""")
-
-cur.execute("""
-CREATE TABLE IF NOT EXISTS sessions (
-    user_id TEXT,
-    code TEXT,
-    attempts INTEGER,
-    PRIMARY KEY(user_id, code)
-)
-""")
-
-conn.commit()
-
-# -----------------------------
-# FIDEL HOUSE LOGIC
-# -----------------------------
-
-houses = {
-
-    "ሀ": ["ሀ", "ሁ", "ሂ", "ሃ", "ሄ", "ህ", "ሆ"],
-    "ለ": ["ለ", "ሉ", "ሊ", "ላ", "ሌ", "ል", "ሎ"],
-    "ሐ": ["ሐ", "ሑ", "ሒ", "ሓ", "ሔ", "ሕ", "ሖ"],
-    "መ": ["መ", "ሙ", "ሚ", "ማ", "ሜ", "ም", "ሞ"],
-    "ሠ": ["ሠ", "ሡ", "ሢ", "ሣ", "ሤ", "ሥ", "ሦ"],
-    "ረ": ["ረ", "ሩ", "ሪ", "ራ", "ሬ", "ር", "ሮ"],
-    "ሰ": ["ሰ", "ሱ", "ሲ", "ሳ", "ሴ", "ስ", "ሶ"],
-    "ሸ": ["ሸ", "ሹ", "ሺ", "ሻ", "ሼ", "ሽ", "ሾ"],
-    "ቀ": ["ቀ", "ቁ", "ቂ", "ቃ", "ቄ", "ቅ", "ቆ"],
-    "በ": ["በ", "ቡ", "ቢ", "ባ", "ቤ", "ብ", "ቦ"],
-    "ተ": ["ተ", "ቱ", "ቲ", "ታ", "ቴ", "ት", "ቶ"],
-    "ቸ": ["ቸ", "ቹ", "ቺ", "ቻ", "ቼ", "ች", "ቾ"],
-    "ኀ": ["ኀ", "ኁ", "ኂ", "ኃ", "ኄ", "ኅ", "ኆ"],
-    "ነ": ["ነ", "ኑ", "ኒ", "ና", "ኔ", "ን", "ኖ"],
-    "ኘ": ["ኘ", "ኙ", "ኚ", "ኛ", "ኜ", "ኝ", "ኞ"],
-    "አ": ["አ", "ኡ", "ኢ", "ኣ", "ኤ", "እ", "ኦ"],
-    "ከ": ["ከ", "ኩ", "ኪ", "ካ", "ኬ", "ክ", "ኮ"],
-    "ኸ": ["ኸ", "ኹ", "ኺ", "ኻ", "ኼ", "ኽ", "ኾ"],
-    "ወ": ["ወ", "ዉ", "ዊ", "ዋ", "ዌ", "ው", "ዎ"],
-    "ዐ": ["ዐ", "ዑ", "ዒ", "ዓ", "ዔ", "ዕ", "ዖ"],
-    "ዘ": ["ዘ", "ዙ", "ዚ", "ዛ", "ዜ", "ዝ", "ዞ"],
-    "የ": ["የ", "ዩ", "ዪ", "ያ", "ዬ", "ይ", "ዮ"],
-    "ደ": ["ደ", "ዱ", "ዲ", "ዳ", "ዴ", "ድ", "ዶ"],
-    "ጀ": ["ጀ", "ጁ", "ጂ", "ጃ", "ጄ", "ጅ", "ጆ"],
-    "ገ": ["ገ", "ጉ", "ጊ", "ጋ", "ጌ", "ግ", "ጎ"],
-    "ጠ": ["ጠ", "ጡ", "ጢ", "ጣ", "ጤ", "ጥ", "ጦ"],
-    "ጨ": ["ጨ", "ጩ", "ጪ", "ጫ", "ጬ", "ጭ", "ጮ"],
-    "ጰ": ["ጰ", "ጱ", "ጲ", "ጳ", "ጴ", "ጵ", "ጶ"],
-    "ጸ": ["ጸ", "ጹ", "ጺ", "ጻ", "ጼ", "ጽ", "ጾ"],
-    "ፀ": ["ፀ", "ፁ", "ፂ", "ፃ", "ፄ", "ፅ", "ፆ"],
-    "ፈ": ["ፈ", "ፉ", "ፊ", "ፋ", "ፌ", "ፍ", "ፎ"],
-    "ፐ": ["ፐ", "ፑ", "ፒ", "ፓ", "ፔ", "ፕ", "ፖ"]
-
-}
-
-def get_house(char):
-    for group in houses:
-        if char in group:
-            return group
+def get_family_id(char):
+    """
+    Returns the 'Family' ID for an Amharic character.
+    In Unicode (U+1200 - U+137F), characters are grouped in blocks of 8.
+    The first character in each block is the 1st Order (Geez).
+    """
+    code = ord(char)
+    if 0x1200 <= code <= 0x137F:
+        # Subtract start of block and divide by 8 to get the 'Family' index
+        return (code - 0x1200) // 8
     return None
 
-}
+def get_feedback(guess, target):
+    """Generates the 4-color feedback string."""
+    if len(guess) != len(target):
+        return "Please guess a 3-letter word."
+    
+    result = ["⬛"] * len(target)
+    target_list = list(target)
+    guess_list = list(guess)
 
-def get_house(char):
-    for root, group in houses.items():
-        if char in group:
-            return root
-    return None
+    # 1. Check for Green (Exact Match)
+    for i in range(len(guess_list)):
+        if guess_list[i] == target_list[i]:
+            result[i] = "🟩"
+            target_list[i] = None # Mark as used
+            guess_list[i] = None
 
-# -----------------------------
-# GAME LOGIC
-# -----------------------------
+    # 2. Check for Orange (Same Family)
+    for i in range(len(guess_list)):
+        if guess_list[i] is not None:
+            g_fam = get_family_id(guess_list[i])
+            t_fam = get_family_id(target[i]) # Compare to target at same position
+            if g_fam is not None and g_fam == t_fam:
+                result[i] = "🟧"
+                guess_list[i] = None
 
-def evaluate_guess(secret, guess):
-    result = []
-
-    for i in range(len(guess)):
-        if i >= len(secret):
-            result.append("⬜️")
-            continue
-
-        if guess[i] == secret[i]:
-            result.append("🟩")
-        elif guess[i] in secret:
-            result.append("🟨")
-        elif get_house(guess[i]) and get_house(guess[i]) == get_house(secret[i]):
-            result.append("🟧")
-        else:
-            result.append("⬜️")
-
+    # 3. Check for Yellow (Misplaced)
+    for i in range(len(guess_list)):
+        if guess_list[i] is not None and guess_list[i] in target_list:
+            result[i] = "🟨"
+            target_list[target_list.index(guess_list[i])] = None
+            
     return "".join(result)
 
-def generate_code():
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
-
-# -----------------------------
-# BOT COMMANDS
-# -----------------------------
+# --- TELEGRAM HANDLERS ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    args = context.args
-
-    if args:
-        code = args[0].upper()
-
-        cur.execute("SELECT word FROM challenges WHERE code=?", (code,))
-        row = cur.fetchone()
-
-        if not row:
-            await update.message.reply_text("Challenge not found.")
-            return
-
-        user_id = str(update.effective_user.id)
-
-        cur.execute("""
-        INSERT OR REPLACE INTO sessions(user_id, code, attempts)
-        VALUES (?, ?, ?)
-        """, (user_id, code, 6))
-        conn.commit()
-
-        await update.message.reply_text(
-            f"🎯 Derdle Challenge {code}\n"
-            f"You have 6 attempts.\n"
-            f"Send your guess."
-        )
-        context.user_data["active_code"] = code
-        return
-
-    await update.message.reply_text(
-        "Welcome to Derdle Bot 🇪🇹\n\n"
-        "/create - Create challenge"
-    )
-
-async def create(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send me your secret Amharic word.")
-    context.user_data["creating"] = True
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
-    user_id = str(update.effective_user.id)
-
-    # Creating challenge
-    if context.user_data.get("creating"):
-        code = generate_code()
-
-        cur.execute("""
-        INSERT INTO challenges(code, word, creator_id)
-        VALUES (?, ?, ?)
-        """, (code, text, user_id))
-        conn.commit()
-
-        context.user_data["creating"] = False
-
-        link = f"https://t.me/YOUR_BOT_USERNAME?start={code}"
-
-        await update.message.reply_text(
-            f"✅ Challenge created!\n"
-            f"Code: {code}\n\n"
-            f"Share:\n{link}"
-        )
-        return
-
-    # Playing challenge
-    code = context.user_data.get("active_code")
-
-    if not code:
-        await update.message.reply_text("Use /create or open a challenge link.")
-        return
-
-    cur.execute("SELECT word FROM challenges WHERE code=?", (code,))
-    row = cur.fetchone()
-
-    if not row:
-        await update.message.reply_text("Challenge expired.")
-        return
-
-    secret = row[0]
-
-    cur.execute("""
-    SELECT attempts FROM sessions
-    WHERE user_id=? AND code=?
-    """, (user_id, code))
-
-    session = cur.fetchone()
-
-    if not session:
-        await update.message.reply_text("Start challenge again.")
-        return
-
-    attempts = session[0]
-
-    if attempts <= 0:
-        await update.message.reply_text("No attempts left.")
-        return
-
-    result = evaluate_guess(secret, text)
-
-    if text == secret:
-        await update.message.reply_text(
-            f"{result}\n🎉 Correct! You solved it."
-        )
-        return
-
-    attempts -= 1
-
-    cur.execute("""
-    UPDATE sessions
-    SET attempts=?
-    WHERE user_id=? AND code=?
-    """, (attempts, user_id, code))
-    conn.commit()
-
-    if attempts == 0:
-        await update.message.reply_text(
-            f"{result}\n❌ Game Over.\nAnswer was: {secret}"
-        )
+    # Check for Deep Linking (e.g., /start c2VsYW0=)
+    if context.args:
+        try:
+            encoded_word = context.args[0]
+            # Decode the shared word
+            target = base64.b64decode(encoded_word).decode('utf-8')
+            context.user_data['target'] = target
+            context.user_data['attempts'] = 0
+            await update.message.reply_text(f"🎮 Challenge Accepted!\nGuess the 3-letter Amharic word. You have 8 tries.")
+        except Exception:
+            await update.message.reply_text("❌ Invalid challenge link.")
     else:
-        await update.message.reply_text(
-            f"{result}\nAttempts left: {attempts}"
-        )
+        await update.message.reply_text("👋 Welcome to Derdle Bot!\n\nTo challenge a friend, type:\n`/create [3-letter-word]`")
 
-# -----------------------------
-# MAIN
-# -----------------------------
+async def create_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args or len(context.args[0]) != 3:
+        await update.message.reply_text("⚠️ Use: `/create ሰላም` (must be 3 characters)")
+        return
+    
+    word = context.args[0]
+    # Encode word into Base64 for the URL
+    encoded = base64.b64encode(word.encode('utf-8')).decode('utf-8')
+    bot_info = await context.bot.get_me()
+    link = f"https://t.me/{bot_info.username}?start={encoded}"
+    
+    await update.message.reply_text(f"✅ Challenge Ready!\nShare this link with your friend:\n`{link}`", parse_mode="Markdown")
 
-def main():
-    logging.basicConfig(level=logging.INFO)
+async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target = context.user_data.get('target')
+    if not target:
+        await update.message.reply_text("Start a game by using a challenge link or creating your own!")
+        return
 
-    app = ApplicationBuilder().token(TOKEN).build()
+    guess = update.message.text.strip()
+    if len(guess) != 3:
+        await update.message.reply_text("❌ Words must be exactly 3 characters.")
+        return
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("create", create))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    context.user_data['attempts'] = context.user_data.get('attempts', 0) + 1
+    attempts = context.user_data['attempts']
+    
+    feedback = get_feedback(guess, target)
+    response = f"Attempt {attempts}/8: {guess}\nResult: {feedback}"
+    
+    await update.message.reply_text(response)
 
-    print("Bot running...")
-    app.run_polling()
+    if guess == target:
+        await update.message.reply_text("🎉 በሪሁ! (Brilliant!) You guessed it!")
+        context.user_data['target'] = None
+    elif attempts >= 8:
+        await update.message.reply_text(f"💀 Game Over. The word was: {target}")
+        context.user_data['target'] = None
 
+# --- APP START ---
 if __name__ == "__main__":
-    main()
+    TOKEN = os.getenv("BOT_TOKEN")
+    app = Application.builder().token(TOKEN).build()
+    
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("create", create_challenge))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
+    
+    print("Bot is running...")
+    app.run_polling()
