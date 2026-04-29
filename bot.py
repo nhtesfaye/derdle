@@ -57,34 +57,49 @@ def get_feedback(guess, target):
 # --- TELEGRAM HANDLERS ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Rules message
-    rules_text = (
-        "👋 **Welcome to Derdle!**\n\n"
-        "The goal is to guess the 3-letter Amharic word in 8 tries.\n\n"
-        "**Rules:**\n"
-        "🟩 = Correct character & spot\n"
-        "🟧 = Same 'Family' (Bet), wrong vowel\n"
-        "🟨 = Character is in the word, wrong spot\n"
-        "⬛ = Character not in the word\n\n"
+    # This is the intro for someone just opening the bot (The Creator)
+    creator_intro = (
+        "👋 **Welcome to the Derdle Creator!**\n\n"
+        "Want to test your friends? Here is how:\n"
+        "1️⃣ Type `/create` followed by a 3-letter word.\n"
+        "   _Example: /create ሰላም_\n"
+        "2️⃣ I'll give you a secret link.\n"
+        "3️⃣ Send that link to your friend!\n\n"
+        "**Rules you're setting:**\n"
+        "🟩 = Perfect match\n"
+        "🟧 = Correct family, wrong vowel\n"
+        "🟨 = Wrong spot\n"
+        "⬛ = Not in word"
     )
 
+    # This is the intro for someone clicking a friend's link (The Challenger)
+    challenger_intro = (
+        "🎮 **Challenge Accepted!**\n\n"
+        "A friend has challenged you to guess their **3-letter Amharic word**.\n\n"
+        "**How to play:**\n"
+        "Type any 3-letter word to start. You have **8 tries**.\n\n"
+        "**Hints:**\n"
+        "🟩 = Right letter, right spot\n"
+        "🟧 = Same family (e.g., you guessed 'ሁ' but it's 'ሃ')\n"
+        "🟨 = Letter is in the word, wrong spot\n"
+        "⬛ = Letter is not in the word at all\n\n"
+        "👉 **Go ahead, make your first guess!**"
+    )
+
+    # Check if they used a link (context.args contains the encoded word)
     if context.args:
         try:
             encoded_word = context.args[0]
             target = base64.b64decode(encoded_word).decode('utf-8')
             context.user_data['target'] = target
             context.user_data['attempts'] = 0
-            await update.message.reply_text(
-                f"{rules_text}🎮 **Challenge Accepted!**\nStart guessing the 3-letter word.",
-                parse_mode="Markdown"
-            )
+            
+            await update.message.reply_text(challenger_intro, parse_mode="Markdown")
         except Exception:
-            await update.message.reply_text("❌ Invalid challenge link.")
+            await update.message.reply_text("❌ Oops! That challenge link seems broken.")
     else:
-        await update.message.reply_text(
-            f"{rules_text}To challenge a friend, type:\n`/create [word]`",
-            parse_mode="Markdown"
-        )
+        # No link? Show them the "How to Create" intro
+        await update.message.reply_text(creator_intro, parse_mode="Markdown")
 async def create_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args[0]) != 3:
         await update.message.reply_text("⚠️ Use: `/create ሰላም` (must be 3 characters)")
@@ -108,14 +123,22 @@ async def create_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(text_message, parse_mode="Markdown")
 async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target = context.user_data.get('target')
+    
+    # Check if a game is actually active
     if not target:
-        await update.message.reply_text("Start a game by using a challenge link or creating your own!")
+        await update.message.reply_text("👋 No active game! Use a challenge link or type /create to start.")
         return
 
     guess = update.message.text.strip()
-    if len(guess) != 3:
-        await update.message.reply_text("❌ Words must be exactly 3 characters.")
+
+    # --- THE 3-CHARACTER LIMITATION ---
+    if len(guess) < 3:
+        await update.message.reply_text("⚠️ Too short! Your guess must be exactly 3 characters.")
         return
+    if len(guess) > 3:
+        await update.message.reply_text("⚠️ Too long! Your guess must be exactly 3 characters.")
+        return
+    # ----------------------------------
 
     context.user_data['attempts'] = context.user_data.get('attempts', 0) + 1
     attempts = context.user_data['attempts']
