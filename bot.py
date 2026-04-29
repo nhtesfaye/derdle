@@ -1,5 +1,6 @@
 import os
 import base64
+import asyncio
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -59,7 +60,7 @@ def get_feedback(guess, target):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # This is the intro for someone just opening the bot (The Creator)
     creator_intro = (
-        "👋 **Welcome to the Derdle Creator!**\n\n"
+        "👋 **Welcome to the Derdle By Nahom Creator!**\n\n"
         "Want to test your friends? Here is how:\n"
         "1️⃣ Type `/create` followed by a 3-letter word.\n"
         "   _Example: /create ሰላም_\n"
@@ -149,7 +150,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response)
 
     if guess == target:
-        await update.message.reply_text("🎉 በሪሁ! (Brilliant!) You guessed it!")
+        await update.message.reply_text("🎉 ፀዴ! (Brilliant!) You guessed it!")
         context.user_data['target'] = None
     elif attempts >= 8:
         await update.message.reply_text(f"💀 Game Over. The word was: {target}")
@@ -157,17 +158,27 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- APP START ---
 if __name__ == "__main__":
-    TOKEN = "8547980046:AAFyjJ4Pe3KrE2qvV0iem3AMXHKWEeo7n6k"
+    TOKEN = os.getenv("TELEGRAM_TOKEN")
     
-    # We build the application differently to bypass the Updater bug
-    application = Application.builder().token(TOKEN).build()
-    
-    # Add your handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("create", create_challenge))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
-    
-    print("Bot is starting...")
-    
-    # Run the bot
-    application.run_polling(drop_pending_updates=True)
+    async def main():
+        # Initialize the bot
+        app = Application.builder().token(TOKEN).build()
+        
+        # Add handlers
+        app.add_handler(CommandHandler("start", start))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg))
+        
+        print("Bot is starting on Koyeb...")
+        
+        async with app:
+            await app.initialize()
+            await app.start()
+            await app.updater.start_polling()
+            # Keep the bot alive
+            while True:
+                await asyncio.sleep(3600)
+
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
