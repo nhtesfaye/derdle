@@ -57,33 +57,55 @@ def get_feedback(guess, target):
 # --- TELEGRAM HANDLERS ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Check for Deep Linking (e.g., /start c2VsYW0=)
+    # Rules message
+    rules_text = (
+        "👋 **Welcome to Derdle!**\n\n"
+        "The goal is to guess the 3-letter Amharic word in 8 tries.\n\n"
+        "**Rules:**\n"
+        "🟩 = Correct character & spot\n"
+        "🟧 = Same 'Family' (Bet), wrong vowel\n"
+        "🟨 = Character is in the word, wrong spot\n"
+        "⬛ = Character not in the word\n\n"
+    )
+
     if context.args:
         try:
             encoded_word = context.args[0]
-            # Decode the shared word
             target = base64.b64decode(encoded_word).decode('utf-8')
             context.user_data['target'] = target
             context.user_data['attempts'] = 0
-            await update.message.reply_text(f"🎮 Challenge Accepted!\nGuess the 3-letter Amharic word. You have 8 tries.")
+            await update.message.reply_text(
+                f"{rules_text}🎮 **Challenge Accepted!**\nStart guessing the 3-letter word.",
+                parse_mode="Markdown"
+            )
         except Exception:
             await update.message.reply_text("❌ Invalid challenge link.")
     else:
-        await update.message.reply_text("👋 Welcome to Derdle Bot!\n\nTo challenge a friend, type:\n`/create [3-letter-word]`")
-
+        await update.message.reply_text(
+            f"{rules_text}To challenge a friend, type:\n`/create [word]`",
+            parse_mode="Markdown"
+        )
 async def create_challenge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.args or len(context.args[0]) != 3:
         await update.message.reply_text("⚠️ Use: `/create ሰላም` (must be 3 characters)")
         return
     
     word = context.args[0]
-    # Encode word into Base64 for the URL
     encoded = base64.b64encode(word.encode('utf-8')).decode('utf-8')
     bot_info = await context.bot.get_me()
+    
+    # Generate the link
     link = f"https://t.me/{bot_info.username}?start={encoded}"
     
-    await update.message.reply_text(f"✅ Challenge Ready!\nShare this link with your friend:\n`{link}`", parse_mode="Markdown")
-
+    # Create a clickable text link
+    # NOTE: In MarkdownV2, we must escape certain characters or use simple Markdown
+    text_message = (
+        "✅ **Challenge Created!**\n\n"
+        f"Send this link to your friend:\n"
+        f"[Click here to start the Challenge]({link})"
+    )
+    
+    await update.message.reply_text(text_message, parse_mode="Markdown")
 async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target = context.user_data.get('target')
     if not target:
@@ -112,22 +134,17 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- APP START ---
 if __name__ == "__main__":
-    # Your actual token placed directly here
     TOKEN = "8547980046:AAFyjJ4Pe3KrE2qvV0iem3AMXHKWEeo7n6k"
     
-    # Initialize the Application
-    app = Application.builder().token(TOKEN).build()
+    # We build the application differently to bypass the Updater bug
+    application = Application.builder().token(TOKEN).build()
     
-    # Add Handlers
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("create", create_challenge))
+    # Add your handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("create", create_challenge))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
     
-    # This handler manages the Amharic word guesses
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
-    
-    # Log status and start the bot
     print("Bot is starting...")
-    print("Status: Connected to Telegram successfully.")
     
-    # This keeps the bot running on Railway
-    app.run_polling()
+    # Run the bot
+    application.run_polling(drop_pending_updates=True)
