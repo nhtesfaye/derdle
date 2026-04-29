@@ -1,10 +1,23 @@
 import os
 import base64
+import threading
 import asyncio
+from flask import Flask
 import logging
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
+# 1. THE DECOY WEB SERVER (To keep Render happy)
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is Running!"
+
+def run_flask():
+    # Render provides a PORT variable automatically
+    port = int(os.environ.get("PORT", 8000))
+    app.run(host='0.0.0.0', port=port)
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
@@ -160,21 +173,20 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     TOKEN = os.getenv("TELEGRAM_TOKEN")
     
+    # Start the decoy web server in the background
+    threading.Thread(target=run_flask, daemon=True).start()
+    
+    # Start the Telegram Bot
     async def main():
-        # Initialize the bot
-        app = Application.builder().token(TOKEN).build()
+        application = Application.builder().token(TOKEN).build()
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg))
         
-        # Add handlers
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_msg))
-        
-        print("Bot is starting on Koyeb...")
-        
-        async with app:
-            await app.initialize()
-            await app.start()
-            await app.updater.start_polling()
-            # Keep the bot alive
+        print("Bot is starting on Render...")
+        async with application:
+            await application.initialize()
+            await application.start()
+            await application.updater.start_polling()
             while True:
                 await asyncio.sleep(3600)
 
