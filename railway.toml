@@ -1,2 +1,2 @@
 [deploy]
-startCommand = "python derdle.py"
+startCommand = "python bot.py"
