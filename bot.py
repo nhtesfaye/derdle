@@ -112,12 +112,22 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- APP START ---
 if __name__ == "__main__":
-    TOKEN = os.getenv("8547980046:AAFyjJ4Pe3KrE2qvV0iem3AMXHKWEeo7n6k")
+    # Your actual token placed directly here
+    TOKEN = "8547980046:AAFyjJ4Pe3KrE2qvV0iem3AMXHKWEeo7n6k"
+    
+    # Initialize the Application
     app = Application.builder().token(TOKEN).build()
     
+    # Add Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("create", create_challenge))
+    
+    # This handler manages the Amharic word guesses
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
     
-    print("Bot is running...")
+    # Log status and start the bot
+    print("Bot is starting...")
+    print("Status: Connected to Telegram successfully.")
+    
+    # This keeps the bot running on Railway
     app.run_polling()
